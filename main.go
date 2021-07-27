@@ -57,7 +57,7 @@ func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt, wgComment sync
 	// INSERT INTO comments (id, postid, name, email, body) VALUES ()
 	_, err = stmtCommentSave.Exec(comment.ID, comment.PostID, comment.Name, comment.Email, comment.Body)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		return
 	}
 
@@ -76,7 +76,7 @@ func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt,
 	// INSERT INTO posts (id, userid, title, body) VALUES ()
 	_, err = stmtPostSave.Exec(post.ID, post.UserID, post.Title, post.Body)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		return
 	}
 

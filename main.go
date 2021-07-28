@@ -21,6 +21,12 @@ type Post struct {
 	Body   string `json:"body"`
 }
 
+func (p *Post) saveToDB(stmt *sql.Stmt) error {
+	// INSERT INTO posts (id, userid, title, body) VALUES ()
+	_, err := stmt.Exec(p.ID, p.UserID, p.Title, p.Body)
+	return err
+}
+
 // Comment type
 type Comment struct {
 	PostID int    `json:"postId"`
@@ -30,6 +36,12 @@ type Comment struct {
 	Body   string `json:"body"`
 }
 
+func (c *Comment) saveToDB(stmt *sql.Stmt) error {
+	// INSERT INTO comments (id, postid, name, email, body) VALUES()
+	_, err := stmt.Exec(c.ID, c.PostID, c.Name, c.Email, c.Body)
+	return err
+}
+
 const (
 	POSTS_URL    = "https://jsonplaceholder.typicode.com/posts?userId="
 	COMMENTS_URL = "https://jsonplaceholder.typicode.com/comments?postId="
@@ -37,54 +49,21 @@ const (
 	ERR_DB_CONNECT = iota + 1
 	ERR_DB_STMT
 	ERR_GET_POSTS
+	ERR_GET_COMMENTS
 )
 
 var (
 	db *sql.DB
 )
 
-func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt) error {
-	// write comments to database
-	err := db.Ping()
-	if err != nil {
-		return err
-	}
-
-	// INSERT INTO comments (id, postid, name, email, body) VALUES ()
-	_, err = stmtCommentSave.Exec(comment.ID, comment.PostID, comment.Name, comment.Email, comment.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt) error {
-
-	// write posts to database
-	err := db.Ping()
-	if err != nil {
-		return err
-	}
-
-	// INSERT INTO posts (id, userid, title, body) VALUES ()
-	_, err = stmtPostSave.Exec(post.ID, post.UserID, post.Title, post.Body)
-	if err != nil {
-		return err
-	}
-
-	// get comments with postId
-	comments, err := getComments(strconv.Itoa(post.ID))
-	if err != nil {
-		return err
-	}
-
+func writeCommentsToDB(comments []Comment, stmtCommentSave *sql.Stmt) error {
 	// write comments to database
 	wgComments := new(sync.WaitGroup)
 	for _, comment := range comments {
 		wgComments.Add(1)
+
 		go func(comment Comment) {
-			err := writeCommentToDB(comment, stmtCommentSave)
+			err := comment.saveToDB(stmtCommentSave)
 			if err != nil {
 				log.Println(err)
 			}
@@ -181,10 +160,24 @@ func main() {
 	wgPosts := new(sync.WaitGroup)
 	for _, post := range posts {
 		wgPosts.Add(1)
+
 		go func(post Post) {
-			err := writePostToDB(post, stmtPostSave, stmtCommentSave)
+			// save post to DB
+			err := post.saveToDB(stmtPostSave)
 			if err != nil {
 				log.Println(err)
+			}
+			// get comments
+			comments, err := getComments(strconv.Itoa(post.ID))
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			// save comments to DB
+			err = writeCommentsToDB(comments, stmtCommentSave)
+			if err != nil {
+				log.Println(err)
+				return
 			}
 			wgPosts.Done()
 		}(post)

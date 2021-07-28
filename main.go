@@ -31,15 +31,12 @@ type Comment struct {
 }
 
 const (
-	userID       = "7"
 	POSTS_URL    = "https://jsonplaceholder.typicode.com/posts?userId="
 	COMMENTS_URL = "https://jsonplaceholder.typicode.com/comments?postId="
 
 	ERR_DB_CONNECT = iota + 1
 	ERR_DB_STMT
-	ERR_HTTP_GET
-	ERR_HTTP_BODY
-	ERR_JSON_UNMARSHAL
+	ERR_GET_POSTS
 )
 
 var (
@@ -104,7 +101,7 @@ func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt,
 	}
 
 	// write comments to database
-	var wgComments sync.WaitGroup
+	wgComments := new(sync.WaitGroup)
 	for _, comment := range comments {
 		wgComments.Add(1)
 		go writeCommentToDB(comment, stmtCommentSave, wgComments)
@@ -115,20 +112,12 @@ func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt,
 	return
 }
 
-func main() {
-	// connect to database
-	db, err := sql.Open("mysql", "[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]")
-	if err != nil {
-		log.Println(err)
-		//		os.Exit(ERR_DB_CONNECT)
-	}
-	defer db.Close()
-
-	// get posts with userID=7
+func getPosts(userID string) (posts []Post, err error) {
+	// get posts with userID
 	resp, err := http.Get(POSTS_URL + userID)
 	if err != nil {
 		log.Println(err)
-		os.Exit(ERR_HTTP_GET)
+		return posts, err
 	}
 	defer resp.Body.Close()
 
@@ -136,16 +125,27 @@ func main() {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
-		os.Exit(ERR_HTTP_BODY)
+		return posts, err
 	}
 
 	// json to struct
-	var posts []Post
 	err = json.Unmarshal(body, &posts)
 	if err != nil {
 		log.Println(err)
-		os.Exit(ERR_JSON_UNMARSHAL)
+		return posts, err
 	}
+
+	return posts, nil
+}
+
+func main() {
+	// connect to database
+	db, err := sql.Open("mysql", "[username[:password]@][protocol[(address)]]/dbname[?param1=value1&...&paramN=valueN]")
+	if err != nil {
+		log.Println(err)
+		os.Exit(ERR_DB_CONNECT)
+	}
+	defer db.Close()
 
 	// sqlPreparePostSave
 	qs := "INSERT INTO posts (id, userid, title, body) VALUES (?, ?, ?, ?)"
@@ -165,8 +165,16 @@ func main() {
 	}
 	defer stmtCommentSave.Close()
 
+	// get Posts with userID=7
+	userID := "7"
+	posts, err := getPosts(userID)
+	if err != nil {
+		log.Println(err)
+		os.Exit(ERR_GET_POSTS)
+	}
+
 	// write posts to database
-	var wgPosts sync.WaitGroup
+	wgPosts := new(sync.WaitGroup)
 	for _, post := range posts {
 		wgPosts.Add(1)
 		go writePostToDB(post, stmtPostSave, stmtCommentSave, wgPosts)

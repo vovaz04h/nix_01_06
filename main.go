@@ -43,61 +43,57 @@ var (
 	db *sql.DB
 )
 
-func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt, wgComment *sync.WaitGroup) {
-
-	defer wgComment.Done()
-
+func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt) error {
 	// write comments to database
 	err := db.Ping()
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	// INSERT INTO comments (id, postid, name, email, body) VALUES ()
 	_, err = stmtCommentSave.Exec(comment.ID, comment.PostID, comment.Name, comment.Email, comment.Body)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
-	return
+	return nil
 }
 
-func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt, wgPosts *sync.WaitGroup) {
-
-	defer wgPosts.Done()
+func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt) error {
 
 	// write posts to database
 	err := db.Ping()
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	// INSERT INTO posts (id, userid, title, body) VALUES ()
 	_, err = stmtPostSave.Exec(post.ID, post.UserID, post.Title, post.Body)
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	// get comments with postId
 	comments, err := getComments(strconv.Itoa(post.ID))
 	if err != nil {
-		log.Println(err)
-		return
+		return err
 	}
 
 	// write comments to database
 	wgComments := new(sync.WaitGroup)
 	for _, comment := range comments {
 		wgComments.Add(1)
-		go writeCommentToDB(comment, stmtCommentSave, wgComments)
+		go func(comment Comment) {
+			err := writeCommentToDB(comment, stmtCommentSave)
+			if err != nil {
+				log.Println(err)
+			}
+			wgComments.Done()
+		}(comment)
 	}
 
 	wgComments.Wait()
-	return
+	return nil
 }
 
 func getComments(postID string) (comments []Comment, err error) {
@@ -185,7 +181,13 @@ func main() {
 	wgPosts := new(sync.WaitGroup)
 	for _, post := range posts {
 		wgPosts.Add(1)
-		go writePostToDB(post, stmtPostSave, stmtCommentSave, wgPosts)
+		go func(post Post) {
+			err := writePostToDB(post, stmtPostSave, stmtCommentSave)
+			if err != nil {
+				log.Println(err)
+			}
+			wgPosts.Done()
+		}(post)
 	}
 
 	wgPosts.Wait()

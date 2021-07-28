@@ -46,7 +46,7 @@ var (
 	db *sql.DB
 )
 
-func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt, wgComment sync.WaitGroup) {
+func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt, wgComment *sync.WaitGroup) {
 	// write comments to database
 	err := db.Ping()
 	if err != nil {
@@ -65,7 +65,7 @@ func writeCommentToDB(comment Comment, stmtCommentSave *sql.Stmt, wgComment sync
 	return
 }
 
-func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt, wgPosts sync.WaitGroup) {
+func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt, wgPosts *sync.WaitGroup) {
 	// write posts to database
 	err := db.Ping()
 	if err != nil {

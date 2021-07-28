@@ -75,22 +75,32 @@ func writeCommentsToDB(comments []Comment, stmtCommentSave *sql.Stmt) error {
 	return nil
 }
 
-func getComments(postID string) (comments []Comment, err error) {
-	// get comments with postId
-	resp, err := http.Get(COMMENTS_URL + postID)
+func getHTTPData(url string) (data []byte, err error) {
+	// http get data
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// read body
-	body, err := io.ReadAll(resp.Body)
+	data, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func getComments(postID string) (comments []Comment, err error) {
+	// /comments?postId={postId}
+	data, err := getHTTPData(COMMENTS_URL + postID)
 	if err != nil {
 		return nil, err
 	}
 
 	// json to struct
-	err = json.Unmarshal(body, &comments)
+	err = json.Unmarshal(data, &comments)
 	if err != nil {
 		return nil, err
 	}
@@ -99,21 +109,14 @@ func getComments(postID string) (comments []Comment, err error) {
 }
 
 func getPosts(userID string) (posts []Post, err error) {
-	// get posts with userID
-	resp, err := http.Get(POSTS_URL + userID)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// read body
-	body, err := io.ReadAll(resp.Body)
+	// /posts?userId=7
+	data, err := getHTTPData(POSTS_URL + userID)
 	if err != nil {
 		return nil, err
 	}
 
 	// json to struct
-	err = json.Unmarshal(body, &posts)
+	err = json.Unmarshal(data, &posts)
 	if err != nil {
 		return nil, err
 	}

@@ -78,23 +78,7 @@ func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt,
 	}
 
 	// get comments with postId
-	resp, err := http.Get(COMMENTS_URL + strconv.Itoa(post.ID))
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// read body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	// json to struct
-	var comments []Comment
-	err = json.Unmarshal(body, &comments)
+	comments, err := getComments(strconv.Itoa(post.ID))
 	if err != nil {
 		log.Println(err)
 		return
@@ -112,27 +96,47 @@ func writePostToDB(post Post, stmtPostSave *sql.Stmt, stmtCommentSave *sql.Stmt,
 	return
 }
 
-func getPosts(userID string) (posts []Post, err error) {
-	// get posts with userID
-	resp, err := http.Get(POSTS_URL + userID)
+func getComments(postID string) (comments []Comment, err error) {
+	// get comments with postId
+	resp, err := http.Get(COMMENTS_URL + postID)
 	if err != nil {
-		log.Println(err)
-		return posts, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// read body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Println(err)
-		return posts, err
+		return nil, err
+	}
+
+	// json to struct
+	err = json.Unmarshal(body, &comments)
+	if err != nil {
+		return nil, err
+	}
+
+	return comments, nil
+}
+
+func getPosts(userID string) (posts []Post, err error) {
+	// get posts with userID
+	resp, err := http.Get(POSTS_URL + userID)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	// read body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
 	// json to struct
 	err = json.Unmarshal(body, &posts)
 	if err != nil {
-		log.Println(err)
-		return posts, err
+		return nil, err
 	}
 
 	return posts, nil
